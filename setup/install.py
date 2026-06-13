@@ -202,8 +202,10 @@ def main() -> None:
     print("\n==> Local tools")
     if not IS_WINDOWS:
         ensure_uv_tool("devsesh", REPO_ROOT / "tools" / "devsesh")
+        ensure_uv_tool("forge", REPO_ROOT / "tools" / "forge")
     else:
         print("  devsesh: skipped (tmux-backed sessions are macOS/Linux only)")
+        print("  forge: skipped (depends on devsesh)")
 
     print("\n==> Done\n")
 

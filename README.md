@@ -24,7 +24,7 @@ Installs Homebrew (macOS) or git (Windows) if missing, clones this repo to `~/de
 bin/        Executable scripts added to $PATH
 config/     Dotfiles and app configuration
 scripts/    One-off or maintenance scripts (not on $PATH)
-tools/      Installable uv-project tools (e.g. devsesh)
+tools/      Installable uv-project tools (e.g. devsesh, forge)
 setup/
   bootstrap.sh    macOS: install Homebrew + uv, then run install.py
   bootstrap.ps1   Windows: install uv, then run install.py
@@ -64,6 +64,30 @@ ssh HOST -t devsesh attach <name>  # then attach to the spawned session
 
 Every endpoint requires a bearer token (from `$DEVSESH_TOKEN`); bind stays on
 localhost — expose it across machines via Tailscale or an SSH tunnel, not `0.0.0.0`.
+
+## forge
+
+Adaptive build pipeline. Runs a task autonomously in a fresh worktree (reusing
+devsesh's worktree plumbing), defaulting to a **free local model** (qwen3-coder
+via Ollama) and **escalating to the Claude subscription only when deterministic
+gates fail** — local → Sonnet → Opus, with a daily Opus cap. The gates (lint /
+typecheck / test) are what make a cheap model safe as the default: work is judged
+on objective signals, not vibes, and only failures cost subscription tokens.
+
+```sh
+forge config init                       # ~/.config/forge/config.toml (ladder, gates, budget)
+forge run my-repo "add a retry to the http client with tests"
+forge ls                                # tasks + status (done / needs_human)
+forge show <task-id>                    # per-attempt routing trail (which tier, gate results)
+forge logs <task-id>                    # full gate output per attempt
+forge resume <task-id>                  # continue an exhausted task's loop
+```
+
+Each attempt records the tier/model used and gate results; on success the branch
+is committed, on ladder exhaustion the task is flagged `needs_human` with the
+worktree left intact. Per-repo gate overrides go in `<repo>/forge.toml` under a
+`[gates]` table. Never point a `local` tier at a paid API — that defeats the cost
+model (Opus only ever comes through the `claude` CLI on your subscription).
 
 ## Bootstrap
 
