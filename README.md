@@ -24,11 +24,46 @@ Installs Homebrew (macOS) or git (Windows) if missing, clones this repo to `~/de
 bin/        Executable scripts added to $PATH
 config/     Dotfiles and app configuration
 scripts/    One-off or maintenance scripts (not on $PATH)
+tools/      Installable uv-project tools (e.g. devsesh)
 setup/
   bootstrap.sh    macOS: install Homebrew + uv, then run install.py
   bootstrap.ps1   Windows: install uv, then run install.py
   install.py      Cross-platform idempotent setup logic
 ```
+
+## devsesh
+
+Worktree-based agent session manager. Given a repo under `~/dev`, it creates a
+fresh git worktree on a branch off `main` and launches a configurable agent
+(`claude`, `opencode`, …) inside it — each in a detached **tmux** session you can
+attach to later. Installed to `$PATH` by `install.py` (`uv tool install`).
+
+```sh
+devsesh repos                      # list git repos under ~/dev
+devsesh new my-repo                # worktree off main + claude in tmux
+devsesh new my-repo fix/bug -t opencode -p "fix the failing test"
+devsesh ls                         # list sessions (with tmux alive/dead)
+devsesh attach my-repo-fix-bug     # attach to the tmux session
+devsesh rm my-repo-fix-bug         # tear down (kill tmux + remove worktree)
+devsesh clean --merged --dead      # prune merged / dead sessions
+```
+
+Config lives at `~/.config/devsesh/config.toml` (`devsesh config init`) — set the
+dev root, worktree location, base branch, and per-tool commands.
+
+**Service mode** lets another machine trigger a session over the network:
+
+```sh
+export DEVSESH_TOKEN=$(openssl rand -hex 16)
+devsesh serve                      # binds 127.0.0.1:8787 by default
+
+# from another machine (over Tailscale or an SSH tunnel):
+devsesh trigger http://HOST:8787 my-repo -p "start on the refactor"
+ssh HOST -t devsesh attach <name>  # then attach to the spawned session
+```
+
+Every endpoint requires a bearer token (from `$DEVSESH_TOKEN`); bind stays on
+localhost — expose it across machines via Tailscale or an SSH tunnel, not `0.0.0.0`.
 
 ## Bootstrap
 

@@ -7,6 +7,7 @@ Personal dev-tools repo. Scripts, config, and machine setup for macOS and Window
 - `bin/` — executable utilities meant to be on `$PATH`
 - `config/` — dotfiles and app config (symlinked via `install.py`)
 - `scripts/` — one-off and maintenance scripts, not on `$PATH`
+- `tools/` — installable uv-project tools (own `pyproject.toml`), installed via `uv tool install --editable` by `install.py`. e.g. `tools/devsesh` — worktree-based agent session manager
 - `setup/bootstrap.sh` — macOS bootstrap (installs Homebrew + uv, calls install.py)
 - `setup/bootstrap.ps1` — Windows bootstrap (installs uv, calls install.py)
 - `setup/install.py` — cross-platform idempotent setup logic; the real work happens here

@@ -1,0 +1,22 @@
+[project]
+name = "devsesh"
+version = "0.1.0"
+description = "Worktree-based agent session manager for ~/dev"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+devsesh = "devsesh.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/devsesh"]
