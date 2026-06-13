@@ -82,6 +82,17 @@ def ensure_shell_line(rc_file: Path, line: str) -> None:
     print(f"  {rc_file.name}: added '{line}'")
 
 
+def git_config(key: str, value: str) -> None:
+    current = subprocess.run(
+        ["git", "config", "--global", key], capture_output=True, text=True
+    ).stdout.strip()
+    if current == value:
+        ok(f"git {key}")
+    else:
+        run("git", "config", "--global", key, value)
+        print(f"  git {key}: set to '{value}'")
+
+
 def symlink(src: Path, dst: Path) -> None:
     if dst.is_symlink() and dst.resolve() == src.resolve():
         ok(str(dst))
@@ -127,13 +138,29 @@ def main() -> None:
         bashrc = Path.home() / ".bashrc"
         ensure_shell_line(bashrc, 'export PATH="$HOME/.local/bin:$PATH"')
 
-    # --- Config symlinks ---
-    print("\n==> Config")
-    symlink(REPO_ROOT / "config" / ".gitconfig", Path.home() / ".gitconfig")
-
-    # Windows uses autocrlf=true; the .gitconfig default (input) is correct for macOS/Linux
-    if IS_WINDOWS:
-        run("git", "config", "--global", "core.autocrlf", "true")
+    # --- Git config ---
+    print("\n==> Git config")
+    git_config("init.defaultBranch", "main")
+    git_config("push.default", "current")
+    git_config("push.autoSetupRemote", "true")
+    git_config("pull.rebase", "true")
+    git_config("rebase.autoStash", "true")
+    git_config("core.excludesfile", "~/.gitignore_global")
+    git_config("core.autocrlf", "true" if IS_WINDOWS else "input")
+    git_config("alias.st", "status -sb")
+    git_config("alias.co", "checkout")
+    git_config("alias.sw", "switch")
+    git_config("alias.br", "branch")
+    git_config("alias.ci", "commit")
+    git_config("alias.amend", "commit --amend --no-edit")
+    git_config("alias.undo", "reset HEAD~1 --mixed")
+    git_config("alias.unstage", "reset HEAD --")
+    git_config("alias.aa", "add --all")
+    git_config("alias.d", "diff")
+    git_config("alias.dc", "diff --cached")
+    git_config("alias.last", "log -1 HEAD --stat")
+    git_config("alias.lg", "log --oneline --graph --decorate --all")
+    git_config("alias.who", "shortlog -sn --no-merges")
 
     # --- Git identity (not stored in repo; prompt if missing) ---
     print("\n==> Git identity")
