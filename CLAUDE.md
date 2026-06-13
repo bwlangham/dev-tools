@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Personal dev-tools repo. Scripts, config, and machine setup for macOS and Windows. **Public repo** — never commit personal data (email, tokens, passwords). The `config/.gitconfig` deliberately omits `[user]` for this reason.
+Personal dev-tools repo. Scripts, config, and machine setup for macOS and Windows. **Public repo** — never commit personal data (email, tokens, passwords).
 
 ## Layout
 
@@ -25,6 +25,7 @@ Personal dev-tools repo. Scripts, config, and machine setup for macOS and Window
 - macOS tool: `ensure_brew("package-name")`
 - Windows tool: `ensure_winget("Publisher.PackageId")` — find IDs with `winget search`
 - Dotfile symlink: `symlink(REPO_ROOT / "config" / "filename", Path.home() / "filename")`
+- Git setting: `git_config("section.key", "value")`
 
 ## Working here
 
