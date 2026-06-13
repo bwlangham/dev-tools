@@ -1,0 +1,32 @@
+[init]
+	defaultBranch = main
+
+[push]
+	default = current
+	autoSetupRemote = true
+
+[pull]
+	rebase = true
+
+[rebase]
+	autoStash = true
+
+[alias]
+	st   = status -sb
+	co   = checkout
+	sw   = switch
+	br   = branch
+	ci   = commit
+	amend = commit --amend --no-edit
+	undo  = reset HEAD~1 --mixed
+	unstage = reset HEAD --
+	aa   = add --all
+	d    = diff
+	dc   = diff --cached
+	last = log -1 HEAD --stat
+	lg   = log --oneline --graph --decorate --all
+	who  = shortlog -sn --no-merges
+
+[core]
+	excludesfile = ~/.gitignore_global
+	autocrlf = input
