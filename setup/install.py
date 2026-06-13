@@ -6,6 +6,7 @@ Called by bootstrap.sh / bootstrap.ps1, or directly: uv run setup/install.py
 
 import platform
 import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -146,6 +147,10 @@ def main() -> None:
     def set_git_identity(key: str, prompt: str) -> None:
         if git_cfg(key):
             ok(key)
+        elif not sys.stdin.isatty():
+            print(
+                f"  {key}: skipped (no TTY — set manually with git config --global {key} '...')"
+            )
         else:
             value = input(f"  {prompt}: ").strip()
             if value:
