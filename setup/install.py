@@ -93,6 +93,17 @@ def git_config(key: str, value: str) -> None:
         print(f"  git {key}: set to '{value}'")
 
 
+def ensure_uv_tool(name: str, path: Path) -> None:
+    listed = subprocess.run(
+        ["uv", "tool", "list"], capture_output=True, text=True
+    ).stdout
+    if any(line.split()[:1] == [name] for line in listed.splitlines()):
+        ok(name)
+    else:
+        installing(name)
+        run("uv", "tool", "install", "--editable", str(path))
+
+
 def symlink(src: Path, dst: Path) -> None:
     if dst.is_symlink() and dst.resolve() == src.resolve():
         ok(str(dst))
@@ -116,6 +127,7 @@ def main() -> None:
         ensure_brew("rtk")
         ensure_brew("pre-commit")
         ensure_brew("shellcheck")
+        ensure_brew("tmux")
         ensure_brew_cask("claude-code")
     elif IS_WINDOWS:
         ensure_winget("GitHub.cli")
@@ -185,6 +197,13 @@ def main() -> None:
 
     set_git_identity("user.name", "Full name")
     set_git_identity("user.email", "Email address")
+
+    # --- Local uv tools ---
+    print("\n==> Local tools")
+    if not IS_WINDOWS:
+        ensure_uv_tool("devsesh", REPO_ROOT / "tools" / "devsesh")
+    else:
+        print("  devsesh: skipped (tmux-backed sessions are macOS/Linux only)")
 
     print("\n==> Done\n")
 
