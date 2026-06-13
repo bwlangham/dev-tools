@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -55,16 +54,16 @@ def list_repos_cmd() -> None:
 @app.command()
 def new(
     repo: str = typer.Argument(..., help="Repo name under the dev root."),
-    branch: Optional[str] = typer.Argument(
+    branch: str | None = typer.Argument(
         None, help="Branch name (auto-generated if omitted)."
     ),
-    tool: Optional[str] = typer.Option(
+    tool: str | None = typer.Option(
         None, "--tool", "-t", help="Agent tool (default from config)."
     ),
-    base: Optional[str] = typer.Option(
+    base: str | None = typer.Option(
         None, "--base", "-b", help="Base branch to fork from."
     ),
-    prompt: Optional[str] = typer.Option(
+    prompt: str | None = typer.Option(
         None, "--prompt", "-p", help="Initial prompt for the agent."
     ),
     fg: bool = typer.Option(
@@ -84,8 +83,12 @@ def new(
     branch = branch or sess.auto_branch(cfg, prompt)
 
     if fg:
+        try:
+            command = sess.build_command(cfg, tool, prompt)
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/]")
+            raise typer.Exit(1)
         wt = worktree.create(repo_path, cfg.worktrees_root, repo, branch, base)
-        command = sess.build_command(cfg, tool, prompt)
         console.print(f"[green]worktree[/] {wt}")
         os.chdir(wt)
         os.execvp("sh", ["sh", "-c", command])
@@ -124,7 +127,7 @@ def list_sessions() -> None:
 
 
 @app.command()
-def attach(name: Optional[str] = typer.Argument(None)) -> None:
+def attach(name: str | None = typer.Argument(None)) -> None:
     """Attach to a session's tmux (interactive picker if no name)."""
     _require_tmux()
     if name is None:
@@ -162,7 +165,7 @@ def rm(
 
 @app.command()
 def clean(
-    older_than: Optional[str] = typer.Option(
+    older_than: str | None = typer.Option(
         None, "--older-than", help="e.g. 30m, 12h, 7d."
     ),
     merged: bool = typer.Option(False, "--merged", help="Branches merged into base."),
@@ -190,8 +193,8 @@ def clean(
 
 @app.command()
 def serve(
-    host: Optional[str] = typer.Option(None, "--host"),
-    port: Optional[int] = typer.Option(None, "--port"),
+    host: str | None = typer.Option(None, "--host"),
+    port: int | None = typer.Option(None, "--port"),
 ) -> None:
     """Run the HTTP service so other machines can trigger sessions."""
     from . import service
@@ -207,11 +210,11 @@ def serve(
 def trigger(
     url: str = typer.Argument(..., help="Base URL of a remote devsesh service."),
     repo: str = typer.Argument(...),
-    branch: Optional[str] = typer.Argument(None),
-    tool: Optional[str] = typer.Option(None, "--tool", "-t"),
-    prompt: Optional[str] = typer.Option(None, "--prompt", "-p"),
-    base: Optional[str] = typer.Option(None, "--base", "-b"),
-    token: Optional[str] = typer.Option(None, "--token", envvar="DEVSESH_TOKEN"),
+    branch: str | None = typer.Argument(None),
+    tool: str | None = typer.Option(None, "--tool", "-t"),
+    prompt: str | None = typer.Option(None, "--prompt", "-p"),
+    base: str | None = typer.Option(None, "--base", "-b"),
+    token: str | None = typer.Option(None, "--token", envvar="DEVSESH_TOKEN"),
 ) -> None:
     """Trigger a session on a remote devsesh service."""
     from . import client

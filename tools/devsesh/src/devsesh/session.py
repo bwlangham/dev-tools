@@ -133,9 +133,13 @@ def create_session(
     prompt: str | None,
 ) -> Session:
     """Create the worktree, launch a detached tmux session, persist state."""
-    wt = worktree.create(repo_path, cfg.worktrees_root, repo_name, branch, base)
-    name = f"{repo_name}-{worktree.sanitize(branch)}"
+    # Validate the tool and check for a name clash before touching the worktree,
+    # so a bad tool or a re-run doesn't leave an orphaned worktree behind.
     command = build_command(cfg, tool, prompt)
+    name = f"{repo_name}-{worktree.sanitize(branch)}"
+    if tmux_alive(name):
+        raise ValueError(f"session {name!r} already exists — attach or rm it first")
+    wt = worktree.create(repo_path, cfg.worktrees_root, repo_name, branch, base)
     tmux_new(name, wt, command)
     session = Session(
         name=name,

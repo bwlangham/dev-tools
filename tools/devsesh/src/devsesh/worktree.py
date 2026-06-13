@@ -83,5 +83,5 @@ def is_merged(repo: Path, branch: str, base: str) -> bool:
     result = git(repo, "branch", "--merged", base, check=False)
     if result.returncode != 0:
         return False
-    merged = {line.lstrip("* ").strip() for line in result.stdout.splitlines()}
+    merged = {line.lstrip("+* ").strip() for line in result.stdout.splitlines()}
     return branch in merged
