@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Personal dev-tools repo. Scripts, config, and machine setup for macOS and Windows. **Public repo** — never commit personal data (email, tokens, passwords).
 
