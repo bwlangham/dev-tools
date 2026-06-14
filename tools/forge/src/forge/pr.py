@@ -59,25 +59,28 @@ def _existing_url(repo_path: Path, branch: str) -> str | None:
     return url if proc.returncode == 0 and url else None
 
 
-def open_pr(repo_path: Path, task: Task) -> str:
+def open_pr(repo_path: Path, task: Task, draft: bool = False) -> str:
     """Create a PR for the task's branch, or return the existing PR's URL."""
     existing = _existing_url(repo_path, task.branch)
     if existing:
         return existing
+    cmd = [
+        "gh",
+        "pr",
+        "create",
+        "--base",
+        task.base,
+        "--head",
+        task.branch,
+        "--title",
+        task.description,
+        "--body",
+        _body(repo_path, task),
+    ]
+    if draft:
+        cmd.append("--draft")
     proc = subprocess.run(
-        [
-            "gh",
-            "pr",
-            "create",
-            "--base",
-            task.base,
-            "--head",
-            task.branch,
-            "--title",
-            task.description,
-            "--body",
-            _body(repo_path, task),
-        ],
+        cmd,
         cwd=repo_path,
         capture_output=True,
         text=True,

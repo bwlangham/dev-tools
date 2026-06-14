@@ -54,6 +54,7 @@ def run_review_and_pr(
 
     if do_pr:
         pr.push(repo_path, task.branch)
-        task.pr_url = pr.open_pr(repo_path, task)
+        # If we exhausted review rounds without approval, open as a draft PR
+        task.pr_url = pr.open_pr(repo_path, task, draft=task.status == "needs_human")
         save(task)
     return task
