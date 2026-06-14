@@ -6,7 +6,7 @@ from forge import backends, build, gates
 from forge import task as tasks
 from forge.backends import AgentResult
 from forge.config import Budget, ForgeConfig, Tier
-from forge.task import GateResult, Task
+from forge.task import Attempt, GateResult, Task
 
 
 @pytest.fixture(autouse=True)
@@ -87,6 +87,32 @@ def test_needs_human_when_all_tiers_fail(tmp_path, monkeypatch):
     task = build.run_build(_cfg(), _task(tmp_path), Path(tmp_path))
     assert task.status == "needs_human"
     assert len(task.attempts) == 4  # 2 local + 1 sonnet + 1 opus
+
+
+def test_reset_routing_restarts_free_first(tmp_path, monkeypatch):
+    used = []
+
+    def fake_agent(tier, prompt, cwd):
+        used.append(tier.model)
+        return AgentResult(True, "")
+
+    monkeypatch.setattr(backends, "run_agent", fake_agent)
+    monkeypatch.setattr(
+        gates, "run_gates", lambda g, cwd: [GateResult("test", True, "")]
+    )
+    task = _task(tmp_path)
+    # a finished build that already exhausted the local tier and used sonnet
+    local = "ollama/qwen3-coder-32k"
+    task.attempts = [
+        Attempt("local", local, True, True, [GateResult("test", True, "")]),
+        Attempt("local", local, True, True, [GateResult("test", True, "")]),
+        Attempt("claude", "sonnet", True, True, [GateResult("test", True, "")]),
+    ]
+    build.run_build(
+        _cfg(), task, Path(tmp_path), reset_routing=True, extra_context="fix this"
+    )
+    # the fix run ignores prior attempts and starts again at the free local tier
+    assert used[-1] == local
 
 
 def test_empty_diff_escalates(tmp_path, monkeypatch):

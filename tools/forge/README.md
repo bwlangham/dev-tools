@@ -14,14 +14,16 @@ Reuses `devsesh` for repo discovery and worktree management. See the repo
 Once a build's gates are green, `forge run <repo> "<desc>" --pr` runs a **review**
 stage: a strong `claude` model (Sonnet by default, set under `[review]` in
 `config.toml`) critiques the diff. If it requests changes, the findings feed back
-into a fix attempt, gates re-run, and it re-reviews — up to `review.max_rounds`.
+into a **fix run through the same build engine** — fresh from the free local tier,
+escalating only when gates fail — then it re-reviews, up to `review.max_rounds`.
 Then the branch is pushed and a PR opened via `gh`. `forge pr <task_id>` runs the
 same review-and-PR flow against a task that already built successfully; it's
 idempotent (re-running returns the existing PR URL).
 
-Review only ever uses a strong subscription model and only after the cheap build
-loop has produced gate-green code, so every PR gets at least one strong-model look
-without spending the subscription on the basic cleanup.
+The review itself always uses a strong subscription model, so every PR gets at
+least one strong-model look. The fixes it asks for, though, go back through the
+free-first ladder like any other build work — keeping the cost model intact. If a
+fix run exhausts the ladder with gates still red, no PR is opened.
 
 ## Known limitations
 

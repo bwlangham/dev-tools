@@ -25,12 +25,14 @@ def _commit(wt: Path, message: str) -> None:
     dw.git(wt, "commit", "-m", message, check=False)
 
 
-def _prompt(task: Task, prior: Attempt | None) -> str:
+def _prompt(task: Task, prior: Attempt | None, extra_context: str | None = None) -> str:
     text = (
         "You are implementing a change in this repository. Make the code edits "
         "directly in the working tree.\n\n"
         f"## Task\n{task.description}\n"
     )
+    if extra_context:
+        text += f"\n{extra_context}\n"
     if prior is None:
         return text
     if not prior.changed:
@@ -53,15 +55,27 @@ def run_build(
     repo_path: Path,
     on_tier: Callable[[object], None] | None = None,
     on_attempt: Callable[[Attempt], None] | None = None,
+    *,
+    extra_context: str | None = None,
+    reset_routing: bool = False,
+    commit_message: str | None = None,
 ) -> Task:
-    """Run the escalating build loop until gates pass or the ladder is exhausted."""
+    """Run the escalating build loop until gates pass or the ladder is exhausted.
+
+    ``reset_routing`` makes the ladder start fresh from the cheapest tier, ignoring
+    earlier attempts on the task — used so a review-driven fix run goes through the
+    same free-first gating as the original build rather than jumping to a paid tier.
+    ``extra_context`` is appended to every prompt in the run (e.g. review findings).
+    """
     wt = Path(task.worktree)
     gate_cfg = config.repo_gates(repo_path, fcfg)
+    base = len(task.attempts) if reset_routing else 0
+    message = commit_message or f"forge: {task.description}"
 
     while True:
         tier = router.next_tier(
             fcfg.ladder,
-            task.attempts,
+            task.attempts[base:],
             opus_attempts_today(),
             fcfg.budget.opus_per_day,
         )
@@ -73,7 +87,7 @@ def run_build(
             on_tier(tier)
 
         prior = task.attempts[-1] if task.attempts else None
-        result = backends.run_agent(tier, _prompt(task, prior), wt)
+        result = backends.run_agent(tier, _prompt(task, prior, extra_context), wt)
 
         changed = _has_changes(wt)
         gate_results = gates.run_gates(gate_cfg, wt) if changed else []
@@ -90,7 +104,7 @@ def run_build(
             on_attempt(attempt)
 
         if attempt.passed:
-            _commit(wt, f"forge: {task.description}")
+            _commit(wt, message)
             task.status = "done"
             save(task)
             return task
