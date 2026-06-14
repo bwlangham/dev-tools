@@ -40,6 +40,14 @@ class Attempt:
 
 
 @dataclass
+class ReviewResult:
+    model: str
+    approved: bool
+    findings: str
+    created_at: float = field(default_factory=time.time)
+
+
+@dataclass
 class Task:
     id: str
     repo: str
@@ -49,6 +57,8 @@ class Task:
     description: str
     status: str
     attempts: list[Attempt] = field(default_factory=list)
+    reviews: list[ReviewResult] = field(default_factory=list)
+    pr_url: str | None = None
     created_at: float = field(default_factory=time.time)
 
     @property
@@ -82,6 +92,15 @@ def _from_dict(data: dict) -> Task:
         )
         for a in data.get("attempts", [])
     ]
+    reviews = [
+        ReviewResult(
+            model=r["model"],
+            approved=r["approved"],
+            findings=r["findings"],
+            created_at=r["created_at"],
+        )
+        for r in data.get("reviews", [])
+    ]
     return Task(
         id=data["id"],
         repo=data["repo"],
@@ -91,6 +110,8 @@ def _from_dict(data: dict) -> Task:
         description=data["description"],
         status=data["status"],
         attempts=attempts,
+        reviews=reviews,
+        pr_url=data.get("pr_url"),
         created_at=data["created_at"],
     )
 

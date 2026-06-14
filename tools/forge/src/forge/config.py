@@ -38,6 +38,13 @@ attempts = 1
 # Cap on Opus attempts across all tasks per calendar day. 0 disables Opus.
 opus_per_day = 4
 
+# Review runs only after the build's gates are green, using a strong `claude`
+# model (never a local tier). A review that requests changes feeds its findings
+# back into a fix attempt, up to `max_rounds`, before a PR is opened.
+[review]
+model      = "sonnet"
+max_rounds = 2
+
 # Default gates, run in the worktree after each build attempt. Override per-repo
 # with a [gates] table in <repo>/forge.toml. A failing gate escalates the task.
 [gates]
@@ -60,6 +67,12 @@ class Budget:
 
 
 @dataclass
+class Review:
+    model: str = "sonnet"
+    max_rounds: int = 2
+
+
+@dataclass
 class ForgeConfig:
     ladder: list[Tier] = field(
         default_factory=lambda: [
@@ -76,6 +89,7 @@ class ForgeConfig:
         }
     )
     budget: Budget = field(default_factory=Budget)
+    review: Review = field(default_factory=Review)
 
 
 def _parse(data: dict) -> ForgeConfig:
@@ -96,6 +110,12 @@ def _parse(data: dict) -> ForgeConfig:
     if isinstance(budget, dict):
         cfg.budget = Budget(
             opus_per_day=int(budget.get("opus_per_day", cfg.budget.opus_per_day))
+        )
+    review = data.get("review", {})
+    if isinstance(review, dict):
+        cfg.review = Review(
+            model=str(review.get("model", cfg.review.model)),
+            max_rounds=int(review.get("max_rounds", cfg.review.max_rounds)),
         )
     return cfg
 
