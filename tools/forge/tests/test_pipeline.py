@@ -15,7 +15,9 @@ def isolate(tmp_path, monkeypatch):
     monkeypatch.setattr(tasks, "STATE_DIR", state)
     # never touch a real remote
     monkeypatch.setattr(pr, "push", lambda repo, branch: None)
-    monkeypatch.setattr(pr, "open_pr", lambda repo, task: "https://example/pr/1")
+    monkeypatch.setattr(
+        pr, "open_pr", lambda repo, task, draft=False: "https://example/pr/1"
+    )
 
 
 def _cfg(max_rounds: int = 2) -> ForgeConfig:
