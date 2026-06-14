@@ -12,10 +12,10 @@ from devsesh import worktree as dw
 from rich.console import Console
 from rich.table import Table
 
-from . import build, config
+from . import build, config, pipeline
 from . import task as tasks
 from .config import Tier
-from .task import Attempt, Task
+from .task import Attempt, ReviewResult, Task
 
 app = typer.Typer(
     help="Adaptive software-production pipeline for ~/dev.",
@@ -63,10 +63,39 @@ def _run_loop(task: Task, repo_path, fcfg) -> Task:
     )
 
 
+def _review_and_pr(task: Task, repo_path, fcfg, do_pr: bool) -> Task:
+    def on_review(result: ReviewResult) -> None:
+        if result.approved:
+            console.print(f"  [green]review approved[/] ([bold]{result.model}[/])")
+        else:
+            console.print(
+                f"  [yellow]review requested changes[/] ([bold]{result.model}[/])"
+                " — fixing"
+            )
+
+    def on_attempt(attempt: Attempt) -> None:
+        if attempt.passed:
+            console.print("  [green]fix passed gates[/]")
+        elif not attempt.changed:
+            console.print("  [yellow]fix made no changes[/]")
+        else:
+            failed = ", ".join(g.name for g in attempt.gates if not g.passed)
+            console.print(f"  [red]fix still failing:[/] {failed}")
+
+    if do_pr:
+        console.print("\n[cyan]→ reviewing[/]")
+    return pipeline.run_review_and_pr(
+        fcfg, task, repo_path, do_pr=do_pr, on_review=on_review, on_attempt=on_attempt
+    )
+
+
 @app.command()
 def run(
     repo: str = typer.Argument(..., help="Repo name under the dev root."),
     description: str = typer.Argument(..., help="What to build."),
+    pr: bool = typer.Option(
+        False, "--pr", help="On success, review the change, push, and open a PR."
+    ),
 ) -> None:
     """Run an autonomous build task: escalate across tiers until gates pass."""
     fcfg = config.load()
@@ -98,6 +127,31 @@ def run(
     console.print(f"[green]worktree[/] {wt}\n")
 
     task = _run_loop(task, repo_path, fcfg)
+    if pr and task.status == "done":
+        task = _review_and_pr(task, repo_path, fcfg, do_pr=True)
+    _report(task, repo_path)
+
+
+@app.command(name="pr")
+def open_pr(task_id: str = typer.Argument(...)) -> None:
+    """Review, push, and open a PR for a task that already built successfully."""
+    fcfg = config.load()
+    dcfg = dconfig.load()
+    task = tasks.load(task_id)
+    if task is None:
+        console.print(f"[red]no task {task_id!r}[/]")
+        raise typer.Exit(1)
+    if task.status != "done":
+        console.print(
+            f"[red]task is {task.status!r}[/] — only `done` tasks can be PR'd"
+        )
+        raise typer.Exit(1)
+    try:
+        repo_path = drepos.resolve(dcfg, task.repo)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1)
+    task = _review_and_pr(task, repo_path, fcfg, do_pr=True)
     _report(task, repo_path)
 
 
@@ -128,6 +182,16 @@ def _report(task: Task, repo_path) -> None:
         )
         console.print(f"[green]done[/] in {len(task.attempts)} attempt(s)")
         console.print(diffstat.stdout.strip() or "(no diff)", markup=False)
+        if task.reviews:
+            last = task.reviews[-1]
+            verdict = (
+                "[green]approved[/]"
+                if last.approved
+                else "[yellow]changes requested[/]"
+            )
+            console.print(f"review: {verdict} ({last.model})")
+        if task.pr_url:
+            console.print(f"PR: [cyan]{task.pr_url}[/]")
     else:
         console.print(
             f"[red]needs human[/] — ladder exhausted after "
@@ -170,6 +234,8 @@ def show(task_id: str = typer.Argument(...)) -> None:
     console.print(f"repo:     {task.repo}")
     console.print(f"branch:   {task.branch}  (base {task.base})")
     console.print(f"worktree: {task.worktree}")
+    if task.pr_url:
+        console.print(f"pr:       {task.pr_url}")
     console.print(f"task:     {task.description}\n")
     table = Table(title="attempts")
     for col in ("#", "tier", "agent", "changed", "gates"):
@@ -190,6 +256,14 @@ def show(task_id: str = typer.Argument(...)) -> None:
             gates_cell,
         )
     console.print(table)
+    if task.reviews:
+        rtable = Table(title="reviews")
+        for col in ("#", "model", "verdict"):
+            rtable.add_column(col)
+        for i, r in enumerate(task.reviews, 1):
+            verdict = "[green]approved[/]" if r.approved else "[yellow]changes[/]"
+            rtable.add_row(str(i), r.model, verdict)
+        console.print(rtable)
 
 
 @app.command()

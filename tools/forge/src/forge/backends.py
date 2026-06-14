@@ -53,7 +53,7 @@ def _run_local(model: str, prompt: str, cwd: Path) -> AgentResult:
     return AgentResult(agent_ok=proc.returncode == 0, output=proc.stdout + proc.stderr)
 
 
-def _run_claude(model: str, prompt: str, cwd: Path) -> AgentResult:
+def _claude(model: str, prompt: str, cwd: Path, permission_mode: str) -> AgentResult:
     proc = subprocess.run(
         [
             "claude",
@@ -64,7 +64,7 @@ def _run_claude(model: str, prompt: str, cwd: Path) -> AgentResult:
             "--output-format",
             "json",
             "--permission-mode",
-            CLAUDE_PERMISSION_MODE,
+            permission_mode,
         ],
         cwd=cwd,
         capture_output=True,
@@ -80,3 +80,12 @@ def _run_claude(model: str, prompt: str, cwd: Path) -> AgentResult:
     except (json.JSONDecodeError, AttributeError):
         output = proc.stdout + proc.stderr
     return AgentResult(agent_ok=agent_ok, output=output)
+
+
+def _run_claude(model: str, prompt: str, cwd: Path) -> AgentResult:
+    return _claude(model, prompt, cwd, CLAUDE_PERMISSION_MODE)
+
+
+def run_claude_readonly(model: str, prompt: str, cwd: Path) -> AgentResult:
+    """Invoke claude for analysis only — `plan` mode forbids any file edits."""
+    return _claude(model, prompt, cwd, "plan")
