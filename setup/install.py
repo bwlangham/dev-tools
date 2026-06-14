@@ -198,6 +198,9 @@ def main() -> None:
     set_git_identity("user.name", "Full name")
     set_git_identity("user.email", "Email address")
 
+    # --- Setup tools ---
+    run("rtk", "init", "-g", "--opencode")
+
     # --- Local uv tools ---
     print("\n==> Local tools")
     if not IS_WINDOWS:
