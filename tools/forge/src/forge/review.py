@@ -48,11 +48,13 @@ def _prompt(task: Task, diff: str) -> str:
     )
 
 
-def fix_prompt(findings: str) -> str:
+def fix_context(findings: str) -> str:
+    """Review findings, framed for injection into the build prompt as extra context."""
     return (
-        "A review of your change requested fixes. Keep the existing working changes "
-        "and address the findings below by editing files directly.\n\n"
-        f"## Review findings\n{findings}"
+        "## Review findings to address\n"
+        "A review of the current change requested fixes. Keep the existing working "
+        "changes and address these findings:\n\n"
+        f"{findings}"
     )
 
 

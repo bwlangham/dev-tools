@@ -1,8 +1,10 @@
 """Post-build orchestration: review (with auto-fix) then push + open a PR.
 
 Runs after ``build.run_build`` has produced a gate-green local commit. The review
-model is a fixed strong ``claude`` tier, so every PR gets at least one strong-model
-look — but only after the cheap build loop has done the basic cleanup.
+itself uses a fixed strong ``claude`` model, so every PR gets at least one
+strong-model look. Fixes it requests, however, go back through the *same* build
+engine — fresh from the free local tier and escalating only on failure — so the
+cost model is preserved for the fix work too.
 """
 
 from __future__ import annotations
@@ -10,34 +12,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from . import backends, build, config, gates, pr, review
-from .config import ForgeConfig, Tier
+from . import build, pr, review
+from .config import ForgeConfig
 from .task import Attempt, ReviewResult, Task, save
-
-
-def _apply_fix(
-    fcfg: ForgeConfig, task: Task, repo_path: Path, findings: str
-) -> Attempt:
-    """Let the review model address findings, then re-run gates and commit."""
-    wt = Path(task.worktree)
-    tier = Tier(kind="claude", model=fcfg.review.model)
-    result = backends.run_agent(tier, review.fix_prompt(findings), wt)
-
-    changed = build._has_changes(wt)
-    gate_cfg = config.repo_gates(repo_path, fcfg)
-    gate_results = gates.run_gates(gate_cfg, wt) if changed else []
-    attempt = Attempt(
-        tier_kind=tier.kind,
-        model=tier.model,
-        agent_ok=result.agent_ok,
-        changed=changed,
-        gates=gate_results,
-    )
-    task.attempts.append(attempt)
-    if changed:
-        build._commit(wt, f"forge: address review for {task.description}")
-    save(task)
-    return attempt
 
 
 def run_review_and_pr(
@@ -46,6 +23,7 @@ def run_review_and_pr(
     repo_path: Path,
     do_pr: bool,
     on_review: Callable[[ReviewResult], None] | None = None,
+    on_tier: Callable[[object], None] | None = None,
     on_attempt: Callable[[Attempt], None] | None = None,
 ) -> Task:
     """Review the built change, auto-fix on request, then optionally open a PR."""
@@ -57,9 +35,22 @@ def run_review_and_pr(
             on_review(result)
         if result.approved:
             break
-        attempt = _apply_fix(fcfg, task, repo_path, result.findings)
-        if on_attempt:
-            on_attempt(attempt)
+
+        # Address findings through the build ladder, free tier first.
+        task = build.run_build(
+            fcfg,
+            task,
+            repo_path,
+            on_tier=on_tier,
+            on_attempt=on_attempt,
+            extra_context=review.fix_context(result.findings),
+            reset_routing=True,
+            commit_message=f"forge: address review for {task.description}",
+        )
+        if task.status != "done":
+            # The fix ladder was exhausted with gates still failing — don't open a
+            # PR on broken code; leave the worktree for a human.
+            return task
 
     if do_pr:
         pr.push(repo_path, task.branch)

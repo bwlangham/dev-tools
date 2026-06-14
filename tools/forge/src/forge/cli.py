@@ -73,19 +73,29 @@ def _review_and_pr(task: Task, repo_path, fcfg, do_pr: bool) -> Task:
                 " — fixing"
             )
 
+    def on_tier(tier: object) -> None:
+        assert isinstance(tier, Tier)
+        console.print(f"  [cyan]→ fixing with[/] [bold]{_tier_label(tier)}[/]")
+
     def on_attempt(attempt: Attempt) -> None:
         if attempt.passed:
-            console.print("  [green]fix passed gates[/]")
+            console.print("    [green]fix passed gates[/]")
         elif not attempt.changed:
-            console.print("  [yellow]fix made no changes[/]")
+            console.print("    [yellow]fix made no changes[/] — escalating")
         else:
             failed = ", ".join(g.name for g in attempt.gates if not g.passed)
-            console.print(f"  [red]fix still failing:[/] {failed}")
+            console.print(f"    [red]fix still failing:[/] {failed} — escalating")
 
     if do_pr:
         console.print("\n[cyan]→ reviewing[/]")
     return pipeline.run_review_and_pr(
-        fcfg, task, repo_path, do_pr=do_pr, on_review=on_review, on_attempt=on_attempt
+        fcfg,
+        task,
+        repo_path,
+        do_pr=do_pr,
+        on_review=on_review,
+        on_tier=on_tier,
+        on_attempt=on_attempt,
     )
 
 
