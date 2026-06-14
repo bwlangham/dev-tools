@@ -13,6 +13,13 @@ dependencies = [
 [project.scripts]
 forge = "forge.cli:app"
 
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "mypy>=1.11",
+    "ruff>=0.6",
+]
+
 [tool.uv.sources]
 devsesh = { path = "../devsesh", editable = true }
 
