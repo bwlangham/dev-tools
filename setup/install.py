@@ -206,6 +206,10 @@ def main() -> None:
     if not IS_WINDOWS:
         ensure_uv_tool("devsesh", REPO_ROOT / "tools" / "devsesh")
         ensure_uv_tool("forge", REPO_ROOT / "tools" / "forge")
+        symlink(
+            REPO_ROOT / "config" / "claude" / "skills" / "forge",
+            Path.home() / ".claude" / "skills" / "forge",
+        )
     else:
         print("  devsesh: skipped (tmux-backed sessions are macOS/Linux only)")
         print("  forge: skipped (depends on devsesh)")
