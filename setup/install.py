@@ -139,13 +139,17 @@ def main() -> None:
     print("\n==> Shell config")
     if IS_MACOS:
         zshrc = Path.home() / ".zshrc"
-        brew_bin = (
-            "/opt/homebrew/bin/brew"
-            if Path("/opt/homebrew").exists()
-            else "/usr/local/bin/brew"
-        )
-        ensure_shell_line(zshrc, f'eval "$({brew_bin} shellenv)"')
-        ensure_shell_line(zshrc, 'export PATH="$HOME/.local/bin:$PATH"')
+        # Skip shell configuration if .zshrc is a symlink (managed by any system like home-manager, etc.)
+        if zshrc.is_symlink():
+            print("  .zshrc: symlinked (likely managed by home-manager or similar)")
+        else:
+            brew_bin = (
+                "/opt/homebrew/bin/brew"
+                if Path("/opt/homebrew").exists()
+                else "/usr/local/bin/brew"
+            )
+            ensure_shell_line(zshrc, f'eval "$({brew_bin} shellenv)"')
+            ensure_shell_line(zshrc, 'export PATH="$HOME/.local/bin:$PATH"')
     elif not IS_WINDOWS:  # Linux / WSL
         bashrc = Path.home() / ".bashrc"
         ensure_shell_line(bashrc, 'export PATH="$HOME/.local/bin:$PATH"')
