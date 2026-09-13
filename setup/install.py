@@ -201,6 +201,17 @@ def ensure_opencode_serena() -> None:
     print(f"  opencode serena: registered in {OPENCODE_CONFIG}")
 
 
+def ensure_rtk_recall() -> None:
+    """rtk's tee log files are superseded by a sqlite recall store."""
+    shown = subprocess.run(["rtk", "config", "recall"], capture_output=True, text=True)
+    if shown.returncode != 0:
+        print("  rtk recall: skipped (needs a newer rtk — run 'brew upgrade rtk')")
+    elif "recall mode: sqlite" in shown.stdout:
+        ok("rtk recall")
+    else:
+        run("rtk", "config", "recall", "sqlite")
+
+
 def symlink(src: Path, dst: Path) -> None:
     if dst.is_symlink() and dst.resolve() == src.resolve():
         ok(str(dst))
@@ -303,6 +314,7 @@ def main() -> None:
 
     # --- Setup tools ---
     run("rtk", "init", "-g", "--opencode")
+    ensure_rtk_recall()
 
     # --- Local uv tools ---
     print("\n==> Local tools")
