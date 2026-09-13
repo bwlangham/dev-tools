@@ -4,6 +4,7 @@ Cross-platform idempotent dev setup.
 Called by bootstrap.sh / bootstrap.ps1, or directly: uv run setup/install.py
 """
 
+import json
 import platform
 import shutil
 import subprocess
@@ -11,6 +12,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
+OPENCODE_CONFIG = Path.home() / ".config" / "opencode" / "opencode.jsonc"
 IS_MACOS = platform.system() == "Darwin"
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -138,6 +140,36 @@ def ensure_serena() -> None:
         run(str(Path.home() / ".local" / "bin" / "serena"), "init")
 
 
+def ensure_opencode_serena() -> None:
+    """Register the Serena MCP server in opencode's global config."""
+    entry = {
+        "type": "local",
+        "command": [
+            str(Path.home() / ".local" / "bin" / "serena"),
+            "start-mcp-server",
+            "--context",
+            "ide",
+            "--project-from-cwd",
+        ],
+        "enabled": True,
+    }
+    if OPENCODE_CONFIG.exists():
+        try:
+            config = json.loads(OPENCODE_CONFIG.read_text())
+        except json.JSONDecodeError:
+            print(f"  opencode serena: skipped ({OPENCODE_CONFIG} is not plain JSON)")
+            return
+    else:
+        config = {"$schema": "https://opencode.ai/config.json"}
+    if config.get("mcp", {}).get("serena") == entry:
+        ok("opencode serena")
+        return
+    config.setdefault("mcp", {})["serena"] = entry
+    OPENCODE_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    OPENCODE_CONFIG.write_text(json.dumps(config, indent=2) + "\n")
+    print(f"  opencode serena: registered in {OPENCODE_CONFIG}")
+
+
 def symlink(src: Path, dst: Path) -> None:
     if dst.is_symlink() and dst.resolve() == src.resolve():
         ok(str(dst))
@@ -247,6 +279,7 @@ def main() -> None:
         ensure_uv_tool("devsesh", REPO_ROOT / "tools" / "devsesh")
         ensure_uv_tool("forge", REPO_ROOT / "tools" / "forge")
         ensure_serena()
+        ensure_opencode_serena()
         symlink(
             REPO_ROOT / "config" / "claude" / "skills" / "forge",
             Path.home() / ".claude" / "skills" / "forge",
