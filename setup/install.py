@@ -5,6 +5,7 @@ Called by bootstrap.sh / bootstrap.ps1, or directly: uv run setup/install.py
 """
 
 import platform
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -39,17 +40,6 @@ def ensure_brew(pkg: str) -> None:
         run("brew", "install", pkg)
 
 
-def ensure_brew_cask(pkg: str) -> None:
-    if (
-        subprocess.run(["brew", "list", "--cask", pkg], capture_output=True).returncode
-        == 0
-    ):
-        ok(pkg)
-    else:
-        installing(pkg)
-        run("brew", "install", "--cask", pkg)
-
-
 def ensure_winget(pkg_id: str) -> None:
     name = pkg_id.split(".")[-1]
     result = subprocess.run(
@@ -70,6 +60,33 @@ def ensure_winget(pkg_id: str) -> None:
             "--silent",
             "--accept-package-agreements",
         )
+
+
+def ensure_claude_code() -> None:
+    """Install Claude Code via the official claude.ai installer."""
+    if shutil.which("brew") and (
+        subprocess.run(
+            ["brew", "list", "--cask", "claude-code"], capture_output=True
+        ).returncode
+        == 0
+    ):
+        sys.exit(
+            "  claude-code: installed via Homebrew cask. Remove it first with "
+            "'brew uninstall --cask claude-code', then re-run."
+        )
+    if shutil.which("claude"):
+        ok("claude-code")
+        return
+    installing("claude-code")
+    if IS_WINDOWS:
+        run(
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "irm https://claude.ai/install.ps1 | iex",
+        )
+    else:
+        run("bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash")
 
 
 def ensure_shell_line(rc_file: Path, line: str) -> None:
@@ -93,15 +110,32 @@ def git_config(key: str, value: str) -> None:
         print(f"  git {key}: set to '{value}'")
 
 
-def ensure_uv_tool(name: str, path: Path) -> None:
+def uv_tool_installed(name: str) -> bool:
     listed = subprocess.run(
         ["uv", "tool", "list"], capture_output=True, text=True
     ).stdout
-    if any(line.split()[:1] == [name] for line in listed.splitlines()):
+    return any(line.split()[:1] == [name] for line in listed.splitlines())
+
+
+def ensure_uv_tool(name: str, path: Path) -> None:
+    if uv_tool_installed(name):
         ok(name)
     else:
         installing(name)
         run("uv", "tool", "install", "--editable", str(path))
+
+
+def ensure_serena() -> None:
+    """Serena MCP server: semantic code tools for opencode and Claude Code."""
+    if uv_tool_installed("serena-agent"):
+        ok("serena-agent")
+    else:
+        installing("serena-agent")
+        run("uv", "tool", "install", "-p", "3.13", "serena-agent")
+    if (Path.home() / ".serena" / "serena_config.yml").exists():
+        ok("serena config")
+    else:
+        run(str(Path.home() / ".local" / "bin" / "serena"), "init")
 
 
 def symlink(src: Path, dst: Path) -> None:
@@ -128,12 +162,14 @@ def main() -> None:
         ensure_brew("pre-commit")
         ensure_brew("shellcheck")
         ensure_brew("tmux")
-        ensure_brew_cask("claude-code")
+        ensure_claude_code()
     elif IS_WINDOWS:
         ensure_winget("GitHub.cli")
         ensure_winget("Git.Git")
+        ensure_claude_code()
     else:
         print("  (Linux: install gh and git via your package manager)")
+        ensure_claude_code()
 
     # --- Shell config ---
     print("\n==> Shell config")
@@ -210,6 +246,7 @@ def main() -> None:
     if not IS_WINDOWS:
         ensure_uv_tool("devsesh", REPO_ROOT / "tools" / "devsesh")
         ensure_uv_tool("forge", REPO_ROOT / "tools" / "forge")
+        ensure_serena()
         symlink(
             REPO_ROOT / "config" / "claude" / "skills" / "forge",
             Path.home() / ".claude" / "skills" / "forge",

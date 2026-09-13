@@ -76,3 +76,6 @@ tools/devsesh/.venv/
 tools/devsesh/__pycache__/
 tools/devsesh/.mypy_cache/
 tools/devsesh/.ruff_cache/
+
+# Serena project state
+.serena/
