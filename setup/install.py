@@ -91,6 +91,37 @@ def ensure_claude_code() -> None:
         run("bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash")
 
 
+def ensure_opencode() -> None:
+    """Install opencode via the official installer.
+
+    Homebrew's opencode installs to /opt/homebrew/bin, which ~/.local/bin
+    shadows on PATH, so the brew copy is downloaded but never run.
+    """
+    if shutil.which("brew") and (
+        subprocess.run(
+            ["brew", "list", "--formula", "opencode"], capture_output=True
+        ).returncode
+        == 0
+    ):
+        sys.exit(
+            "  opencode: installed via Homebrew, where ~/.local/bin shadows it. "
+            "Remove it first with 'brew uninstall opencode', then re-run."
+        )
+    if shutil.which("opencode"):
+        ok("opencode")
+        return
+    installing("opencode")
+    run(
+        "bash",
+        "-c",
+        "curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path",
+    )
+    symlink(
+        Path.home() / ".opencode" / "bin" / "opencode",
+        Path.home() / ".local" / "bin" / "opencode",
+    )
+
+
 def ensure_shell_line(rc_file: Path, line: str) -> None:
     content = rc_file.read_text() if rc_file.exists() else ""
     if line in content:
@@ -189,7 +220,7 @@ def main() -> None:
     if IS_MACOS:
         ensure_brew("gh")
         ensure_brew("git")
-        ensure_brew("opencode")
+        ensure_opencode()
         ensure_brew("rtk")
         ensure_brew("pre-commit")
         ensure_brew("shellcheck")
